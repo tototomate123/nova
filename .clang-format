@@ -1,0 +1,14 @@
+BasedOnStyle: Google
+BraceWrapping:
+  AfterControlStatement: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+AllowShortBlocksOnASingleLine: false
+KeepEmptyLinesAtTheStartOfBlocks: true
+PenaltyBreakComment: 0
+PenaltyBreakFirstLessLess: 0
+SpacesBeforeTrailingComments: 1
+AllowShortIfStatementsOnASingleLine: false
+KeepEmptyLinesAtTheStartOfBlocks: true
+
