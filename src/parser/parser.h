@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include "../tokenizer/tokenize.h"
+#include "../logger/logger.h"
 #ifndef PARSER_H
 #define PARSER_H
 
@@ -85,7 +86,58 @@ private:
             return parseReturnStatement();
         }
 
+        if (token.type == TokenType::KEYWORD && token.value == "let") {
+            return parseVariableDeclaration();
+        }
+
         handleError("Unknown statement: " + token.to_string());
+        return nullptr;
+    }
+
+    ASTNode* parseVariableDeclaration() {
+        log::debug("Parsing variable declaration");
+        expect(TokenType::KEYWORD, "let");
+
+        Token name = consume();
+        if(name.type != TokenType::IDENTIFIER) {
+            handleError("Expected variable name, got: " + name.to_string());
+        }
+        expect(TokenType::SYMBOL, ":");
+        Token type = consume();
+        if(type.type != TokenType::KEYWORD) {
+            handleError("Expected type, got: " + type.to_string());
+        }
+        expect(TokenType::SYMBOL, "=");
+        log::debug("Parsing expression");
+        ASTNode* value = parseExpression();
+
+        expect(TokenType::SYMBOL, ";");
+
+        ASTNode* varNode = new ASTNode("VariableDeclaration", name.value);
+        varNode -> children.push_back(new ASTNode("Type", type.value));
+        varNode -> children.push_back(value);
+        return varNode;
+    }
+
+    ASTNode* parseExpression() {
+        Token lhs = consume();
+        if(lhs.type != TokenType::IDENTIFIER && lhs.type != TokenType::NUMBER) {
+            handleError("Expected identifier or number, got: " + lhs.to_string());
+        }
+
+        ASTNode* left = new ASTNode(lhs.type == TokenType::IDENTIFIER ? "Variable": "Literal", lhs.value);
+        Token op = peek();
+
+        if(op.type == TokenType::SYMBOL && (op.value == "+" || op.value == "-" || op.value == "*" || op.value == "/")) {
+            log::debug("Parsing binary operation");
+            consume();
+            ASTNode* right = parseExpression();
+            ASTNode* opNode = new ASTNode("BinaryOp", op.value);
+            opNode->children.push_back(left);
+            opNode->children.push_back(right);
+            return opNode;
+        }
+        return left;
     }
 
     ASTNode* parseReturnStatement() {
@@ -99,7 +151,11 @@ private:
         expect(TokenType::SYMBOL, ";");
 
         ASTNode* returnNode = new ASTNode("ReturnStatement", "");
-        returnNode->children.push_back(new ASTNode("Literal", value.value));
+        if (value.type == TokenType::NUMBER) {
+            returnNode->children.push_back(new ASTNode("Literal", value.value));
+        } else if (value.type == TokenType::IDENTIFIER) {
+            returnNode->children.push_back(new ASTNode("Variable", value.value));
+        }
         return returnNode;
     }
 };

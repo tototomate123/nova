@@ -4,10 +4,14 @@
 #include <fstream>
 #include "llvm_generator.h"
 #include "../logger/logger.h"
+#include <map>
 
 llvm::LLVMContext context;
 llvm::IRBuilder<> builder(context);
 llvm::Module* module = nullptr;
+
+
+llvm::Value* generateExpression(ASTNode* ast, std::map<std::string, llvm::Value*> &variableMap);
 
 void initializeLLVM() {
     log::debug("Initializing LLVM");
@@ -24,59 +28,38 @@ void generateLLVMIR(ASTNode* ast) {
 
     if (ast->type == "Function") {
         log::debug("Defining function: " + ast->value);
-        llvm::Type* returnType = builder.getInt32Ty();
-        llvm::FunctionType* funcType = llvm::FunctionType::get(returnType, false);
+
+        llvm::FunctionType* funcType = llvm::FunctionType::get(builder.getInt32Ty(), false);
         llvm::Function* function = llvm::Function::Create(
             funcType, llvm::Function::ExternalLinkage, ast->value, module);
-
-        if (!function) {
-            log::error("Failed to create LLVM function: " + ast->value);
-            return;
-        }
 
         llvm::BasicBlock* block = llvm::BasicBlock::Create(context, "entry", function);
         builder.SetInsertPoint(block);
 
-        for (size_t i = 0; i < ast->children.size(); ++i) {
-            auto* child = ast->children[i];
-            if (!child) {
-                log::error("Child ASTNode is null at index: " + std::to_string(i));
-                continue;
-            }
+        std::map<std::string, llvm::Value*> variableMap;
 
-            log::debug("Processing child node type: " + child->type);
-            if (child->type == "ReturnStatement") {
-                if (child->children.empty()) {
-                    log::error("ReturnStatement node has no children");
-                    continue;
+        for (auto* child : ast->children) {
+            if (child->type == "VariableDeclaration") {
+                std::string varName = child->value;
+                llvm::Value* initValue = generateExpression(child->children[1], variableMap);
+                llvm::AllocaInst* alloca = builder.CreateAlloca(builder.getInt32Ty(), nullptr, varName);
+                builder.CreateStore(initValue, alloca);
+                variableMap[varName] = alloca;
+                log::debug("Declared variable: " + varName);
+            } else if (child->type == "ReturnStatement") {
+                llvm::Value* retValue = generateExpression(child->children[0], variableMap);
+                if (!retValue) {
+                    log::error("Failed to generate return value");
+                    return;
                 }
-
-                if (child->children[0]->type == "Literal") {
-                    const std::string& valueStr = child->children[0]->value;
-                    bool isNumeric = !valueStr.empty() &&
-                                     std::all_of(valueStr.begin(), valueStr.end(), ::isdigit);
-
-                    if (!isNumeric) {
-                        log::error("Invalid return value: " + valueStr);
-                        continue;
-                    }
-
-                    int value = std::stoi(valueStr);
-                    builder.CreateRet(builder.getInt32(value));
-                    log::debug("Return value added to function: " + std::to_string(value));
-                } else {
-                    log::error("Unexpected child type in ReturnStatement: " + child->children[0]->type);
-                }
-            } else {
-                log::debug("Unhandled child node type: " + child->type);
+                builder.CreateRet(retValue);
+                log::debug("Added return value");
             }
         }
-
         if (!function->back().getTerminator()) {
-            builder.CreateRetVoid();
-            log::debug("Added fallback return void terminator for function: " + ast->value);
+            builder.CreateRet(builder.getInt32(0));
+            log::debug("Added default return value for function: " + ast->value);
         }
-
 
         std::string errorMsg;
         llvm::raw_string_ostream errorStream(errorMsg);
@@ -90,6 +73,47 @@ void generateLLVMIR(ASTNode* ast) {
     } else {
         log::debug("Unhandled AST node type: " + ast->type);
     }
+}
+
+
+
+llvm::Value* generateExpression(ASTNode* ast, std::map<std::string, llvm::Value*>& variableMap) {
+    if (ast->type == "Literal") {
+        if (!std::all_of(ast->value.begin(), ast->value.end(), ::isdigit)) {
+            handleError("Invalid Literal value: " + ast->value);
+        }
+        log::debug("Converting Literal to integer: " + ast->value);
+        return llvm::ConstantInt::get(builder.getInt32Ty(), std::stoi(ast->value));
+    } else if (ast->type == "Variable") {
+        if (variableMap.count(ast->value) == 0) {
+            handleError("Variable not found: " + ast->value);
+        }
+        log::debug("Loading variable: " + ast->value);
+        return builder.CreateLoad(builder.getInt32Ty(), variableMap[ast->value], ast->value);
+    } else if (ast->type == "BinaryOp") {
+        log::debug("Generating BinaryOp: " + ast->value);
+        llvm::Value* lhs = generateExpression(ast->children[0], variableMap);
+        llvm::Value* rhs = generateExpression(ast->children[1], variableMap);
+
+        if (!lhs || !rhs) {
+            handleError("Failed to generate operands for binary operation: " + ast->value);
+        }
+
+        if (ast->value == "+") {
+            return builder.CreateAdd(lhs, rhs, "addtmp");
+        } else if (ast->value == "-") {
+            return builder.CreateSub(lhs, rhs, "subtmp");
+        } else if (ast->value == "*") {
+            return builder.CreateMul(lhs, rhs, "multmp");
+        } else if (ast->value == "/") {
+            return builder.CreateSDiv(lhs, rhs, "divtmp");
+        } else {
+            handleError("Unknown binary operator: " + ast->value);
+        }
+    }
+
+    handleError("Unknown expression type: " + ast->type);
+    return nullptr;
 }
 
 

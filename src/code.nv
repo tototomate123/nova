@@ -1,3 +1,6 @@
 fn main() {
-    return 0; // comment
+    let num1: int = 10;
+    let num2: int = 10;
+    let res: int = num1 * num2;
+    return res; // comment
 }

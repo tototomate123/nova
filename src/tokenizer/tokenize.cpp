@@ -7,10 +7,17 @@
 
 const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"fn", TokenType::KEYWORD},
-    {"return", TokenType::KEYWORD}
+    {"let", TokenType::KEYWORD},
+    {"return", TokenType::KEYWORD},
+    {"int", TokenType::KEYWORD}
 };
 
 const std::unordered_map<char, TokenType> SYMBOLS = {
+    {'=', TokenType::SYMBOL},
+    {'+', TokenType::SYMBOL},
+    {'-', TokenType::SYMBOL},
+    {'*', TokenType::SYMBOL},
+    {'/', TokenType::SYMBOL},
     {'(', TokenType::SYMBOL},
     {')', TokenType::SYMBOL},
     {'{', TokenType::SYMBOL},

@@ -47,7 +47,7 @@ void semanticAnalysis(ASTNode* ast, SymbolTable& symbolTable) {
             semanticAnalysis(child, symbolTable);
         }
     } else if (ast->type == "ReturnStatement") {
-        if (ast->children.empty() || ast->children[0]->type != "Literal") {
+        if (ast->children.empty() || ast->children[0]->type != "Literal" && ast->children[0]->type != "Variable") {
             handleAnalysisError("Invalid return statement");
         }
     }
