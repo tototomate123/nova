@@ -37,10 +37,17 @@ struct Token {
     }
 };
 
-// fn to tokenize input content
+/**
+ * @brief Function to tokenize the content
+ * @param content Content to tokenize
+ * @return Vector of tokens
+ */
 std::vector<Token> tokenize(const std::string& content);
 
-// fn to print tokens
+/**
+ * @brief Function to print tokens
+ * @param tokens Vector of tokens
+ */
 void print_tokens(const std::vector<Token>& tokens);
 
 #endif // TOKENIZE_H

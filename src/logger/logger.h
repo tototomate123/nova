@@ -11,24 +11,33 @@ const std::string loglevel = "DEBUG";
 class log
 {
 public:
+    /**
+     * @brief Function to log DEBUG message
+     */
     static void debug(const std::string &message)
     {   
         if (loglevel != "DEBUG") return;
         logWithLevel(message, "DEBUG");
     }
-
+    /**
+     * @brief Function to log INFO message
+     */
     static void info(const std::string &message)
     {   
         if (loglevel != "DEBUG" && loglevel != "INFO") return;
         logWithLevel(message, "INFO");
     }
-
+    /**
+     * @brief Function to log WARN message
+     */
     static void warn(const std::string &message)
     {
         if (loglevel != "DEBUG" && loglevel != "INFO" && loglevel != "WARN") return;
         logWithLevel(message, "WARN");
     }
-
+    /**
+     * @brief Function to log ERROR message
+     */
     static void error(const std::string &message)
     {
         logWithLevel(message, "ERROR");

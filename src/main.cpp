@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
     printLLVMIR("output.ll");
 
     delete ast;
-
+    log::info("Compilation successful");
     return 0;
 }
 
@@ -63,6 +63,4 @@ void read_file(const std::string &filename, std::string &content) {
     file.close();
 
     log::debug("Closed file: " + filename);
-
-
 }

@@ -7,50 +7,40 @@
 #include "../parser/parser.h"
 #include "../tokenizer/tokenize.h"
 
-void handleAnalysisError(const std::string& message) {
-    std::cerr << "Analysis Error: " << message << std::endl;
-    std::exit(1);
-}
-
 struct Symbol {
     std::string name;
     std::string type; // E.g., "int", "void"
 };
+/**
+ * @brief Function to handle analysis error
+ */
+void handleAnalysisError(const std::string& message);
 
 class SymbolTable {
 private:
     std::unordered_map<std::string, Symbol> table;
 
 public:
-    void addSymbol(const std::string& name, const std::string& type) {
-        if (table.count(name)) {
-            handleAnalysisError("Symbol already defined: " + name);
-        }
-        table[name] = {name, type};
-    }
+    /**
+     * @brief Function to add symbol to the symbol table
+     * @param name Name of the symbol
+     * @param type Type of the symbol
+     */
+    void addSymbol(const std::string& name, const std::string& type);
 
-    const Symbol& getSymbol(const std::string& name) const {
-        if (!table.count(name)) {
-            handleAnalysisError("Symbol not found: " + name);
-        }
-        return table.at(name);
-    }
+    /**
+     * @brief Function to get symbol from the symbol table
+     * @param name Name of the symbol
+     * @return Symbol
+     */
+    const Symbol& getSymbol(const std::string& name) const;
 };
 
-void semanticAnalysis(ASTNode* ast, SymbolTable& symbolTable) {
-    if (ast->type == "Function") {
-        // Add function to the symbol table
-        symbolTable.addSymbol(ast->value, "void"); // For now, assume void return type
-
-        // Analyze the function body
-        for (auto* child : ast->children) {
-            semanticAnalysis(child, symbolTable);
-        }
-    } else if (ast->type == "ReturnStatement") {
-        if (ast->children.empty() || ast->children[0]->type != "Literal" && ast->children[0]->type != "Variable") {
-            handleAnalysisError("Invalid return statement");
-        }
-    }
-}
+/**
+ * @brief Function to perform semantic analysis
+ * @param ast AST node
+ * @param symbolTable Symbol table
+ */
+void semanticAnalysis(ASTNode* ast, SymbolTable& symbolTable);
 
 #endif // ANALYSIS_H
