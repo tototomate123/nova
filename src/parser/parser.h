@@ -57,6 +57,18 @@ public:
 
 private:
     /**
+     * @brief Function to parse a binary operation
+     * @param exprPrec Precedence of the expression
+     * @param lhs Left hand side of the expression
+     * @return ASTNode
+     */
+    ASTNode* parseBinaryOpRHS(int exprPrec, ASTNode* lhs);
+    /**
+     * @brief Function to parse a primary
+     * @return ASTNode
+     */
+    ASTNode* parsePrimary();
+    /**
      * @brief Function to parse a function
      * @return ASTNode
      */

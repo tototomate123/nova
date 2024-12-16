@@ -39,14 +39,33 @@ void generateLLVMIR(ASTNode* ast) {
         std::map<std::string, llvm::Value*> variableMap;
 
         for (auto* child : ast->children) {
+            if (!child) {
+                handleError("ASTNode child is null in generateLLVMIR");
+            }
+
             if (child->type == "VariableDeclaration") {
                 std::string varName = child->value;
+                log::debug("Processing VariableDeclaration: " + varName);
+
+                if (child->children.size() < 2 || !child->children[1]) {
+                    handleError("Invalid initialization for variable: " + varName);
+                }
+
                 llvm::Value* initValue = generateExpression(child->children[1], variableMap);
+                if (!initValue) {
+                    handleError("Failed to generate initialization value for: " + varName);
+                }
+
                 llvm::AllocaInst* alloca = builder.CreateAlloca(builder.getInt32Ty(), nullptr, varName);
                 builder.CreateStore(initValue, alloca);
-                variableMap[varName] = alloca;
-                log::debug("Declared variable: " + varName);
-            } else if (child->type == "ReturnStatement") {
+                variableMap[varName] = alloca;  // Add the variable to the map
+                log::debug("Declared variable: " + varName + " with type int");
+            }
+            else if (child->type == "ReturnStatement") {
+                if (child->children.empty() || !child->children[0]) {
+                    handleError("Return statement has no value");
+                }
+
                 llvm::Value* retValue = generateExpression(child->children[0], variableMap);
                 if (!retValue) {
                     log::error("Failed to generate return value");
@@ -56,6 +75,7 @@ void generateLLVMIR(ASTNode* ast) {
                 log::debug("Added return value");
             }
         }
+
         if (!function->back().getTerminator()) {
             builder.CreateRet(builder.getInt32(0));
             log::debug("Added default return value for function: " + ast->value);
@@ -77,44 +97,47 @@ void generateLLVMIR(ASTNode* ast) {
 
 
 
+
 llvm::Value* generateExpression(ASTNode* ast, std::map<std::string, llvm::Value*>& variableMap) {
+    if (!ast) {
+        handleError("ASTNode is null in generateExpression");
+    }
+    log::debug("Processing ASTNode of type: " + ast->type);
+
     if (ast->type == "Literal") {
-        if (!std::all_of(ast->value.begin(), ast->value.end(), ::isdigit)) {
-            handleError("Invalid Literal value: " + ast->value);
-        }
-        log::debug("Converting Literal to integer: " + ast->value);
+        log::debug("Converting Literal: " + ast->value);
         return llvm::ConstantInt::get(builder.getInt32Ty(), std::stoi(ast->value));
-    } else if (ast->type == "Variable") {
+    }
+
+    if (ast->type == "Variable") {
         if (variableMap.count(ast->value) == 0) {
-            handleError("Variable not found: " + ast->value);
+            handleError("Variable not found in variableMap: " + ast->value);
         }
-        log::debug("Loading variable: " + ast->value);
         return builder.CreateLoad(builder.getInt32Ty(), variableMap[ast->value], ast->value);
-    } else if (ast->type == "BinaryOp") {
-        log::debug("Generating BinaryOp: " + ast->value);
+    }
+
+    if (ast->type == "BinaryOp") {
+        log::debug("Generating BinaryOp for operator: " + ast->value);
         llvm::Value* lhs = generateExpression(ast->children[0], variableMap);
         llvm::Value* rhs = generateExpression(ast->children[1], variableMap);
 
         if (!lhs || !rhs) {
-            handleError("Failed to generate operands for binary operation: " + ast->value);
+            handleError("Failed to generate operands for BinaryOp: " + ast->value);
         }
 
-        if (ast->value == "+") {
-            return builder.CreateAdd(lhs, rhs, "addtmp");
-        } else if (ast->value == "-") {
-            return builder.CreateSub(lhs, rhs, "subtmp");
-        } else if (ast->value == "*") {
-            return builder.CreateMul(lhs, rhs, "multmp");
-        } else if (ast->value == "/") {
-            return builder.CreateSDiv(lhs, rhs, "divtmp");
-        } else {
-            handleError("Unknown binary operator: " + ast->value);
-        }
+        if (ast->value == "+") return builder.CreateAdd(lhs, rhs, "addtmp");
+        if (ast->value == "-") return builder.CreateSub(lhs, rhs, "subtmp");
+        if (ast->value == "*") return builder.CreateMul(lhs, rhs, "multmp");
+        if (ast->value == "/") return builder.CreateSDiv(lhs, rhs, "divtmp");
+
+        handleError("Unknown operator in BinaryOp: " + ast->value);
     }
 
-    handleError("Unknown expression type: " + ast->type);
+    handleError("Unhandled ASTNode type: " + ast->type);
     return nullptr;
 }
+
+
 
 
 void printLLVMIR(const std::string& filename) {

@@ -76,46 +76,108 @@ ASTNode* Parser::parseVariableDeclaration() {
     expect(TokenType::KEYWORD, "let");
 
     Token name = consume();
-    if(name.type != TokenType::IDENTIFIER) {
+    if (name.type != TokenType::IDENTIFIER) {
         handleError("Expected variable name, got: " + name.to_string());
     }
-    expect(TokenType::SYMBOL, ":");
-    Token type = consume();
-    if(type.type != TokenType::KEYWORD) {
-        handleError("Expected type, got: " + type.to_string());
+
+    // Optional type declaration
+    Token next = peek();
+    ASTNode* typeNode = nullptr;
+    if (next.type == TokenType::SYMBOL && next.value == ":") {
+        consume(); // Consume ':'
+        Token type = consume();
+        if (type.type != TokenType::KEYWORD) {
+            handleError("Expected type, got: " + type.to_string());
+        }
+        typeNode = new ASTNode("Type", type.value);
     }
+
     expect(TokenType::SYMBOL, "=");
     log::debug("Parsing expression");
     ASTNode* value = parseExpression();
 
-    expect(TokenType::SYMBOL, ";");
+    expect(TokenType::SYMBOL, ";"); // Ensure semicolon at the end
 
     ASTNode* varNode = new ASTNode("VariableDeclaration", name.value);
-    varNode -> children.push_back(new ASTNode("Type", type.value));
-    varNode -> children.push_back(value);
+    if (typeNode) {
+        varNode->children.push_back(typeNode); // Add type if declared
+    }
+    varNode->children.push_back(value);
     return varNode;
 }
 
-ASTNode* Parser::parseExpression() {
-    Token lhs = consume();
-    if(lhs.type != TokenType::IDENTIFIER && lhs.type != TokenType::NUMBER) {
-        handleError("Expected identifier or number, got: " + lhs.to_string());
+
+
+int getPrecedence(const std::string& op) {
+    if (op == "+" || op == "-") return 1; // Lower precedence
+    if (op == "*" || op == "/") return 2; // Higher precedence
+    return 0; // Invalid operator
+}
+
+ASTNode* Parser::parsePrimary() {
+    Token token = peek();
+
+    // Handle parentheses
+    if (token.type == TokenType::SYMBOL && token.value == "(") {
+        consume(); // Consume '('
+        ASTNode* expr = parseExpression(); // Parse the inner expression
+        expect(TokenType::SYMBOL, ")"); // Ensure closing ')'
+        return expr;
     }
 
-    ASTNode* left = new ASTNode(lhs.type == TokenType::IDENTIFIER ? "Variable": "Literal", lhs.value);
-    Token op = peek();
+    // Handle literals and variables
+    Token lhs = consume();
+    if (lhs.type == TokenType::IDENTIFIER || lhs.type == TokenType::NUMBER) {
+        return new ASTNode(lhs.type == TokenType::IDENTIFIER ? "Variable" : "Literal", lhs.value);
+    }
 
-    if(op.type == TokenType::SYMBOL && (op.value == "+" || op.value == "-" || op.value == "*" || op.value == "/")) {
-        log::debug("Parsing binary operation");
-        consume();
-        ASTNode* right = parseExpression();
+    handleError("Expected identifier, number, or parenthesis, got: " + lhs.to_string());
+    return nullptr;
+}
+
+
+ASTNode* Parser::parseBinaryOpRHS(int exprPrecedence, ASTNode* left) {
+    while (true) {
+        Token op = peek();
+
+        // Stop parsing if the token is not an operator or indicates the end of an expression
+        if (op.type == TokenType::SYMBOL && op.value == ";") return left; // End of statement
+        if (op.type == TokenType::KEYWORD && op.value == "let") return left; // Start of a new statement
+        if (op.type != TokenType::SYMBOL || getPrecedence(op.value) == 0) return left; // Non-operator
+
+        int tokenPrecedence = getPrecedence(op.value);
+
+        // Stop parsing if the current operator has lower precedence
+        if (tokenPrecedence < exprPrecedence) {
+            return left;
+        }
+
+        consume(); // Consume the operator
+
+        // Parse the next primary expression
+        ASTNode* right = parsePrimary();
+
+        // Check if the next operator has higher precedence
+        Token nextOp = peek();
+        int nextPrecedence = getPrecedence(nextOp.value);
+        if (tokenPrecedence < nextPrecedence) {
+            right = parseBinaryOpRHS(tokenPrecedence + 1, right);
+        }
+
+        // Create a new BinaryOp node
         ASTNode* opNode = new ASTNode("BinaryOp", op.value);
         opNode->children.push_back(left);
         opNode->children.push_back(right);
-        return opNode;
+        left = opNode;
     }
-    return left;
 }
+
+ASTNode* Parser::parseExpression() {
+    ASTNode* left = parsePrimary(); // Parse the left-hand side
+    return parseBinaryOpRHS(0, left); // Process the rest based on precedence
+}
+
+
 
 ASTNode* Parser::parseReturnStatement() {
     expect(TokenType::KEYWORD, "return");

@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <stdexcept>
 #include "../parser/parser.h"
 #include "../tokenizer/tokenize.h"
